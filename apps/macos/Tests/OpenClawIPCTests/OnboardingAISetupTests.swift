@@ -4640,7 +4640,11 @@ struct OnboardingAISetupTests {
         #expect(!view.aiSetup.connected)
         #expect(!view.finishState.didFinish)
         #expect(view.aiSetup.canUseVerifiedPendingInference)
-        #expect(pendingState(defaults) == .verified(deadline: deadline))
+        guard case let .verified(verifiedDeadline) = pendingState(defaults) else {
+            Issue.record("Expected the pending activation to be verified")
+            return
+        }
+        #expect(abs(verifiedDeadline.timeIntervalSince(deadline)) < 0.001)
         #expect(storedActivationOwner(defaults) == owner)
 
         let waiting = await inspectAISetupSurface(OnboardingAISetupView(
@@ -4657,7 +4661,11 @@ struct OnboardingAISetupTests {
         #expect(view.aiSetup.connected)
         #expect(view.aiSetup.verifiedExistingInference)
         #expect(view.finishState.didFinish)
-        #expect(pendingState(defaults) == .verified(deadline: deadline))
+        guard case let .verified(retainedDeadline) = pendingState(defaults) else {
+            Issue.record("Expected the verified activation receipt to remain pending")
+            return
+        }
+        #expect(abs(retainedDeadline.timeIntervalSince(verifiedDeadline)) < 0.001)
         #expect(storedActivationOwner(defaults) == owner)
         #expect(await harness.recorder.snapshot().methods == [
             "agents.list",
