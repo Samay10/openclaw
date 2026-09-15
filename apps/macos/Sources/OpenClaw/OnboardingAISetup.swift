@@ -473,39 +473,26 @@ final class OnboardingAISetupModel {
         let model = modelRef.trimmingCharacters(in: .whitespacesAndNewlines)
         guard self.pendingActivationVerification, !model.isEmpty else { return }
         guard self.pendingActivationOwner == nil else { return }
-        finishConnected(
-            kind: "existing-model",
-            handoff: .dashboard)
+        finishConnected(kind: "existing-model", handoff: .dashboard)
     }
 
-    /// True after this attempt observed working inference while a pending
-    /// activation lease still blocks mutation. Unbound receipts cannot attest
-    /// the current Gateway, so they stay wait-only.
+    /// True after live verify while a mutation lease still blocks activation.
     var canUseVerifiedPendingInference: Bool {
         guard self.waitingForPendingActivationDeadline,
-              self.verifiedPendingConfiguredModel?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+              !(self.verifiedPendingConfiguredModel?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true),
               self.pendingActivationOwner?.isUnbound != true,
-              let routeIdentity = self.routeIdentityProvider()
+              let routeIdentity = routeIdentityProvider()
         else { return false }
         switch OnboardingSystemAgentResumeStore.pendingState(for: routeIdentity, defaults: self.defaults) {
-        case .activating, .verified:
-            return true
-        case .activationExpired, .completed, .none:
-            return false
+        case .activating, .verified: return true
+        case .activationExpired, .completed, .none: return false
         }
     }
 
-    /// User-initiated recovery after a live verify while a mutation lease is
-    /// still outstanding. Opens the already-working route without starting a
-    /// replacement activation or clearing another attempt's receipt.
+    /// Open the already-working route without a second activation write.
     func useVerifiedPendingInference() {
-        guard self.canUseVerifiedPendingInference,
-              let model = self.verifiedPendingConfiguredModel?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !model.isEmpty
-        else { return }
-        finishConnected(
-            kind: "existing-model",
-            handoff: .dashboard)
+        guard self.canUseVerifiedPendingInference else { return }
+        finishConnected(kind: "existing-model", handoff: .dashboard)
     }
 
     /// Clear only the completed receipt created by this setup attempt.
