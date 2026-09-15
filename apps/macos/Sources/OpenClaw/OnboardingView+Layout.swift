@@ -198,9 +198,15 @@ extension OnboardingView {
                     await self.resumePendingSystemAgent(modelRef: modelRef, intent: recoveryIntent).value
                     return
                 case .verified:
-                    // Inference was observed, but the dropped activation can
-                    // still be mutating until the same durable deadline.
-                    self.waitForPendingInferenceSetup()
+                    // Automatic reconnects stay read-only until the lease
+                    // ends. Check again re-verifies so the user can open the
+                    // already-working route without another activation write.
+                    if intent == .inspectOnly {
+                        guard !self.aiSetup.connected else { return }
+                        await self.resumePendingSystemAgent(modelRef: modelRef, intent: intent).value
+                    } else {
+                        self.waitForPendingInferenceSetup()
+                    }
                     return
                 case .none:
                     break
