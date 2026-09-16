@@ -14,11 +14,11 @@ enum AppTranslocationSupport {
 
     nonisolated static func isRunningUnderAppTranslocation(
         executablePath: String? = ProcessInfo.processInfo.arguments.first,
-        bundlePath: String? = Bundle.main.bundleURL.path,
-    ) -> Bool {
+        bundlePath: String? = Bundle.main.bundleURL.path) -> Bool
+    {
         [executablePath, bundlePath]
             .compactMap(\.self)
-            .contains(where: isAppTranslocatedPath)
+            .contains(where: self.isAppTranslocatedPath)
     }
 
     nonisolated static var stuckRelocationTitle: String {
@@ -43,8 +43,8 @@ enum AppTranslocationSupport {
     @discardableResult
     nonisolated static func clearQuarantineAttributes(
         at rootURL: URL,
-        fileManager: FileManager = .default,
-    ) -> Bool {
+        fileManager: FileManager = .default) -> Bool
+    {
         let root = rootURL.standardizedFileURL
         guard fileManager.fileExists(atPath: root.path) else { return false }
 
@@ -53,21 +53,20 @@ enum AppTranslocationSupport {
         if let enumerator = fileManager.enumerator(
             at: root,
             includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey],
-            options: [.skipsHiddenFiles],
-        ) {
+            options: [.skipsHiddenFiles])
+        {
             while let next = enumerator.nextObject() as? URL {
                 pending.append(next)
             }
         }
 
-        for url in pending where clearQuarantineAttribute(atPath: url.path, fileManager: fileManager) {
+        for url in pending where self.clearQuarantineAttribute(atPath: url.path, fileManager: fileManager) {
             clearedAny = true
         }
 
         if clearedAny {
-            logger.notice(
-                "Cleared residual quarantine attributes under \(root.path, privacy: .public)",
-            )
+            self.logger.notice(
+                "Cleared residual quarantine attributes under \(root.path, privacy: .public)")
         }
         return clearedAny
     }
@@ -80,10 +79,10 @@ enum AppTranslocationSupport {
     @discardableResult
     private nonisolated static func clearQuarantineAttribute(
         atPath path: String,
-        fileManager: FileManager,
-    ) -> Bool {
-        guard hasQuarantineAttribute(atPath: path) else { return false }
-        if removexattr(path, quarantineAttribute, 0) == 0 {
+        fileManager: FileManager) -> Bool
+    {
+        guard self.hasQuarantineAttribute(atPath: path) else { return false }
+        if removexattr(path, self.quarantineAttribute, 0) == 0 {
             return true
         }
         // Nested resource files can be non-writable after install; make them
@@ -94,15 +93,13 @@ enum AppTranslocationSupport {
             let writable = previousMode.uint16Value | 0o200
             try? fileManager.setAttributes(
                 [.posixPermissions: NSNumber(value: writable)],
-                ofItemAtPath: path,
-            )
+                ofItemAtPath: path)
         }
         let cleared = removexattr(path, quarantineAttribute, 0) == 0
         if let previousMode {
             try? fileManager.setAttributes(
                 [.posixPermissions: previousMode],
-                ofItemAtPath: path,
-            )
+                ofItemAtPath: path)
         }
         return cleared
     }
