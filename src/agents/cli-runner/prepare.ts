@@ -8,10 +8,7 @@ import { prepareReplyToolAuthority } from "../../auto-reply/reply/reply-tool-aut
 import { messageToolOwnsVisibleReply } from "../../auto-reply/source-reply-delivery-mode.js";
 import { getRuntimeConfig } from "../../config/config.js";
 import { canonicalizeMainSessionAlias } from "../../config/sessions/main-session.js";
-import {
-  admitSessionTranscriptQuestionAnswer,
-  runWithSessionTranscriptReadFence,
-} from "../../config/sessions/session-transcript-read-fence.js";
+import { runWithSessionTranscriptReadFence } from "../../config/sessions/session-transcript-read-fence.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import {
   assertContextEngineHostSupport,
@@ -125,7 +122,6 @@ import {
 } from "../embedded-agent-runner/sandbox-skills.js";
 import { selectContextEngineForTranscriptHost } from "../harness/context-engine-logical-turn.js";
 import { drainPendingContextEngineTurnsBeforeRun } from "../harness/context-engine-turn-attempt.js";
-import { createAgentQuestionAnswerAuthority } from "../harness/host-private-capabilities.js";
 import type { ResolvedProviderAuth } from "../model-auth-runtime-shared.js";
 import { findModelCatalogEntry, loadManifestModelCatalog } from "../model-catalog.js";
 import type { ModelCatalogEntry } from "../model-catalog.types.js";
@@ -159,6 +155,7 @@ import {
   type BundledCliBackendAuthPolicy,
 } from "./cli-backend-auth-policy.js";
 import { getCliLiveSessionGeneration } from "./cli-live-session-registry.js";
+import { createCliQuestionAnswerAuthority } from "./cli-question-answer-authority.js";
 import {
   createCliRunCurrentAssertion,
   resolveCliExecutionTarget,
@@ -1002,7 +999,7 @@ async function prepareCliRunContextWithinReadFence(
     params = { ...params, toolAuthorityFingerprint: questionFingerprint };
   }
   const bindQuestionAnswerAuthorityForSession = (sessionKey: string, assertActive: () => void) =>
-    createAgentQuestionAnswerAuthority({
+    createCliQuestionAnswerAuthority({
       sessionKey,
       fingerprint: questionFingerprint,
       project: (caller) =>
@@ -1024,8 +1021,6 @@ async function prepareCliRunContextWithinReadFence(
         }
         assertActive();
       },
-      // Same custody hook the gateway embedded runner gets via withSessionTranscriptQuestionAnswers.
-      admitTranscriptAnswer: admitSessionTranscriptQuestionAnswer,
     });
   const bindQuestionAnswerAuthority: NonNullable<
     PreparedCliRunContext["bindQuestionAnswerAuthority"]

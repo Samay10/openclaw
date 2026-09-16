@@ -2,8 +2,6 @@
  * Top-level CLI-backed agent runner orchestration.
  */
 import { SILENT_REPLY_TOKEN } from "../auto-reply/tokens.js";
-import { runWithCliHistoryWriter } from "../config/sessions/cli-history-boundary.js";
-import { withSessionTranscriptQuestionAnswers } from "../config/sessions/session-transcript-read-fence.js";
 import { buildGenericCliContextEngineHostSupport } from "../context-engine/host-compat.js";
 import {
   assertAgentRunLifecycleGenerationCurrent,
@@ -70,6 +68,7 @@ import {
   runClaudeCliAgentTurnWithDiagnostics,
   type ClaudeCliRunDiagnosticLifecycle,
 } from "./cli-runner/run-diagnostics.js";
+import { runPreparedCliAgentWithTranscriptCustody } from "./cli-runner/run-prepared-custody.js";
 import {
   loadCliSessionContextEngineMessages,
   loadCliSessionHistoryMessages,
@@ -249,15 +248,7 @@ export async function runPreparedCliAgent(
   diagnosticLifecycle?: ClaudeCliRunDiagnosticLifecycle,
 ): Promise<EmbeddedAgentRunResult> {
   const run = () => runPreparedCliAgentOwned(context, diagnosticLifecycle);
-  // Keep question-answer transcript custody alive for the whole prepared run so
-  // channel answers admitted during ask_user can fence the later tool-result append.
-  return await withSessionTranscriptQuestionAnswers(
-    context.params.userTurnTranscriptRecorder,
-    () => {
-      context.params.assertCurrent?.();
-    },
-    async () => await runWithCliHistoryWriter(context.cliHistoryWriter, run),
-  );
+  return await runPreparedCliAgentWithTranscriptCustody(context, run);
 }
 
 async function runPreparedCliAgentOwned(
