@@ -17,10 +17,24 @@ const mocks = vi.hoisted(() => ({
   getDaemonStatusSummary: vi.fn(),
   getNodeDaemonStatusSummary: vi.fn(),
   resolveModelAuthLabel: vi.fn(),
+  resolveCommandConfigWithSecrets: vi.fn(async ({ config }: { config: unknown }) => ({
+    resolvedConfig: config,
+    effectiveConfig: config,
+    diagnostics: [],
+  })),
+  getModelsCommandSecretTargetIds: vi.fn(() => new Set(["models.providers.*.apiKey"])),
 }));
 
 vi.mock("../infra/provider-usage.js", () => ({
   loadProviderUsageSummary: mocks.loadProviderUsageSummary,
+}));
+
+vi.mock("../cli/command-config-resolution.js", () => ({
+  resolveCommandConfigWithSecrets: mocks.resolveCommandConfigWithSecrets,
+}));
+
+vi.mock("../cli/command-secret-targets.js", () => ({
+  getModelsCommandSecretTargetIds: mocks.getModelsCommandSecretTargetIds,
 }));
 
 vi.mock("../agents/model-auth-label.js", () => ({
@@ -101,6 +115,49 @@ describe("status-runtime-shared", () => {
     expect(usageCall.timeoutMs).toBe(1234);
     expect(usageCall.config).toEqual({ gateway: {} });
     expect(usageCall.agentDir).toContain("main");
+    expect(mocks.resolveCommandConfigWithSecrets).toHaveBeenCalledWith({
+      config: { gateway: {} },
+      commandName: "status --usage",
+      targetIds: new Set(["models.providers.*.apiKey"]),
+      mode: "read_only_status",
+    });
+  });
+
+  it("passes SecretRef-prepared model provider config into usage collection", async () => {
+    const sourceConfig = {
+      models: {
+        providers: {
+          openrouter: {
+            apiKey: { source: "exec", provider: "default", id: "openrouter-key" },
+          },
+        },
+      },
+    };
+    const preparedConfig = {
+      models: {
+        providers: {
+          openrouter: {
+            apiKey: "or-secretref-token",
+          },
+        },
+      },
+    };
+    mocks.resolveCommandConfigWithSecrets.mockResolvedValueOnce({
+      resolvedConfig: preparedConfig,
+      effectiveConfig: preparedConfig,
+      diagnostics: [],
+    });
+
+    await resolveStatusUsageSummary({
+      config: sourceConfig,
+      agentDir: "/tmp/status-agent",
+    });
+
+    expect(mocks.loadProviderUsageSummary).toHaveBeenCalledWith({
+      timeoutMs: undefined,
+      config: preparedConfig,
+      agentDir: "/tmp/status-agent",
+    });
   });
 
   it("uses the named system agent for agent-scoped usage credentials", async () => {
