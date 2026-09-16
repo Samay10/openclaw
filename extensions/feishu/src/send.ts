@@ -313,7 +313,9 @@ async function resolveMergeForwardSenderNames(params: {
       const result = await resolveFeishuSenderName({
         account: params.account,
         senderId,
-        log: logVerbose,
+        log: (...args: unknown[]) => {
+          logVerbose(args.map(String).join(" "));
+        },
       });
       if (result.name) {
         senderNames.set(senderId, result.name);
