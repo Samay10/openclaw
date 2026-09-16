@@ -8,7 +8,10 @@ import { prepareReplyToolAuthority } from "../../auto-reply/reply/reply-tool-aut
 import { messageToolOwnsVisibleReply } from "../../auto-reply/source-reply-delivery-mode.js";
 import { getRuntimeConfig } from "../../config/config.js";
 import { canonicalizeMainSessionAlias } from "../../config/sessions/main-session.js";
-import { runWithSessionTranscriptReadFence } from "../../config/sessions/session-transcript-read-fence.js";
+import {
+  admitSessionTranscriptQuestionAnswer,
+  runWithSessionTranscriptReadFence,
+} from "../../config/sessions/session-transcript-read-fence.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import {
   assertContextEngineHostSupport,
@@ -1021,6 +1024,8 @@ async function prepareCliRunContextWithinReadFence(
         }
         assertActive();
       },
+      // Same custody hook the gateway embedded runner gets via withSessionTranscriptQuestionAnswers.
+      admitTranscriptAnswer: admitSessionTranscriptQuestionAnswer,
     });
   const bindQuestionAnswerAuthority: NonNullable<
     PreparedCliRunContext["bindQuestionAnswerAuthority"]

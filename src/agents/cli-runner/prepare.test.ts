@@ -4667,6 +4667,7 @@ describe("prepareCliRunContext", () => {
       "question authority",
     );
     const questionAuthority = bindQuestionAuthority(() => {});
+    expect(questionAuthority.admitTranscriptAnswer).toEqual(expect.any(Function));
     originalToolsAllow.push("exec");
     const caller = {
       senderIsOwner: false,

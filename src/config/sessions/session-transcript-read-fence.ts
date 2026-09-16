@@ -22,6 +22,39 @@ type QuestionAnswerScope = {
 };
 const questionAnswerStorage = new AsyncLocalStorage<QuestionAnswerScope>();
 
+function admitQuestionAnswerIntoScope(
+  scope: QuestionAnswerScope,
+  source: UserTurnTranscriptRecorder | undefined,
+): void {
+  scope.assertActive();
+  const creator = scope.recorder && getUserTurnTranscriptAdmissionOwner(scope.recorder);
+  const original = creator?.receipt();
+  const input = readPendingUserTurnTranscriptAdmission(source);
+  if (
+    original &&
+    input &&
+    !creator?.blocked() &&
+    input.agentId === original.agentId &&
+    input.sessionId === original.sessionId &&
+    input.sessionKey === original.sessionKey &&
+    input.storePath === original.storePath &&
+    input.generation === original.generation
+  ) {
+    scope.inputs.set(input.entryId, input);
+  }
+}
+
+/** Admit a persisted answer into the live question-custody scope, if one is active. */
+export function admitSessionTranscriptQuestionAnswer(
+  source: UserTurnTranscriptRecorder | undefined,
+): void {
+  const scope = questionAnswerStorage.getStore();
+  if (!scope) {
+    return;
+  }
+  admitQuestionAnswerIntoScope(scope, source);
+}
+
 /** Answer custody outlives question registration, but never the creator's admitted run. */
 export function withSessionTranscriptQuestionAnswers<T>(
   recorder: UserTurnTranscriptRecorder | undefined,
@@ -31,22 +64,7 @@ export function withSessionTranscriptQuestionAnswers<T>(
   const scope: QuestionAnswerScope = { recorder, assertActive, inputs: new Map() };
   return questionAnswerStorage.run(scope, () =>
     run((source) => {
-      scope.assertActive();
-      const creator = scope.recorder && getUserTurnTranscriptAdmissionOwner(scope.recorder);
-      const original = creator?.receipt();
-      const input = readPendingUserTurnTranscriptAdmission(source);
-      if (
-        original &&
-        input &&
-        !creator?.blocked() &&
-        input.agentId === original.agentId &&
-        input.sessionId === original.sessionId &&
-        input.sessionKey === original.sessionKey &&
-        input.storePath === original.storePath &&
-        input.generation === original.generation
-      ) {
-        scope.inputs.set(input.entryId, input);
-      }
+      admitQuestionAnswerIntoScope(scope, source);
     }),
   );
 }
