@@ -3,10 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { createDeferred } from "../../../test/helpers/promise.js";
 import { useAutoCleanupTempDirTracker } from "../../../test/helpers/temp-dir.js";
 import { replaceSessionEntry } from "../../config/sessions/session-accessor.js";
-import {
-  admitSessionTranscriptQuestionAnswer,
-  withSessionTranscriptQuestionAnswers,
-} from "../../config/sessions/session-transcript-read-fence.js";
+import { withSessionTranscriptQuestionAnswers } from "../../config/sessions/session-transcript-read-fence.js";
 import { createUserTurnTranscriptRecorder } from "../../sessions/user-turn-transcript.js";
 import {
   createTestUserTurnTranscriptTarget,
@@ -17,11 +14,9 @@ import {
   runAgentHarnessGatewayQuestion,
 } from "../harness/gateway-question.js";
 import { withQuestionGateway } from "../harness/gateway-question.test-support.js";
-import {
-  createAgentQuestionAnswerAuthority,
-  withAgentQuestionAnswerAuthority,
-} from "../harness/host-private-capabilities.js";
+import { withAgentQuestionAnswerAuthority } from "../harness/host-private-capabilities.js";
 import { SessionManager } from "../sessions/session-manager.js";
+import { createCliQuestionAnswerAuthority } from "./cli-question-answer-authority.js";
 
 const tempDirs = useAutoCleanupTempDirTracker(afterEach);
 const questions = [
@@ -55,24 +50,22 @@ it("CLI question custody admits a channel answer so the waiting tool-result appe
     const releaseAppend = createDeferred();
     const providerResumed = vi.fn();
 
-    // Mirror the CLI runner binding: admit through the live custody scope rather
-    // than the gateway embedded-run helper that #149617 already covered.
+    // Mirror CLI ask_user: bind under custody so channel claim closes over that scope.
     const run = withSessionTranscriptQuestionAnswers(
       original,
       () => {
         controller.signal.throwIfAborted();
       },
       async () => {
-        const authority = createAgentQuestionAnswerAuthority({
+        const authority = createCliQuestionAnswerAuthority({
           sessionKey: target.sessionKey,
           fingerprint: "cli-question-fingerprint",
           project: () => "cli-question-fingerprint",
           assertActive: () => {
             controller.signal.throwIfAborted();
           },
-          admitTranscriptAnswer: admitSessionTranscriptQuestionAnswer,
         });
-        expect(authority.admitTranscriptAnswer).toBe(admitSessionTranscriptQuestionAnswer);
+        expect(authority.admitTranscriptAnswer).toEqual(expect.any(Function));
 
         return await withAgentQuestionAnswerAuthority(authority, async () => {
           const answer = await runAgentHarnessGatewayQuestion({

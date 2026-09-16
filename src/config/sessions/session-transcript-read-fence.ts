@@ -55,6 +55,22 @@ export function admitSessionTranscriptQuestionAnswer(
   admitQuestionAnswerIntoScope(scope, source);
 }
 
+/**
+ * Capture admit against the current custody scope so a later channel claim can
+ * fence the waiting tool-result append even outside this async context.
+ */
+export function bindSessionTranscriptQuestionAnswerAdmit(): (
+  source: UserTurnTranscriptRecorder | undefined,
+) => void {
+  const scope = questionAnswerStorage.getStore();
+  if (!scope) {
+    return admitSessionTranscriptQuestionAnswer;
+  }
+  return (source) => {
+    admitQuestionAnswerIntoScope(scope, source);
+  };
+}
+
 /** Answer custody outlives question registration, but never the creator's admitted run. */
 export function withSessionTranscriptQuestionAnswers<T>(
   recorder: UserTurnTranscriptRecorder | undefined,
