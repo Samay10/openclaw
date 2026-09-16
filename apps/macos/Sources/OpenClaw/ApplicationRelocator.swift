@@ -252,8 +252,17 @@ enum ApplicationRelocator {
             recommendation: recommendation,
             arguments: processInfo.arguments)
         {
-            self.showFailure(
-                "OpenClaw is installed in Applications, but couldn’t reopen automatically. Open it there manually.")
+            if AppTranslocationSupport.isRunningUnderAppTranslocation(
+                executablePath: processInfo.arguments.first,
+                bundlePath: environment.bundleURL.path)
+            {
+                self.showFailure(
+                    AppTranslocationSupport.stuckRelocationMessage,
+                    title: AppTranslocationSupport.stuckRelocationTitle)
+            } else {
+                self.showFailure(
+                    "OpenClaw is installed in Applications, but couldn’t reopen automatically. Open it there manually.")
+            }
             return .continueLaunch(startUpdater: false)
         }
         switch recommendation {
@@ -267,6 +276,16 @@ enum ApplicationRelocator {
                 let monitoredBundleURL = replacementSourceBundleURL(
                     fallback: bundle.bundleURL)
                 startBundleReplacementMonitoring(bundle: bundle, at: monitoredBundleURL)
+            }
+            if !processInfo.isRunningTests,
+               !processInfo.isPreview,
+               AppTranslocationSupport.isRunningUnderAppTranslocation(
+                   executablePath: processInfo.arguments.first,
+                   bundlePath: environment.bundleURL.path)
+            {
+                self.showFailure(
+                    AppTranslocationSupport.stuckRelocationMessage,
+                    title: AppTranslocationSupport.stuckRelocationTitle)
             }
             return .continueLaunch(startUpdater: true)
         case let .handOff(destination):
@@ -991,6 +1010,10 @@ extension ApplicationRelocator {
     }
 
     private static func relaunchAndTerminate(at destination: URL) -> LaunchDisposition {
+        // Residual Gatekeeper quarantine on the Applications install can make
+        // LaunchServices hand the next open into App Translocation, which breaks
+        // Peekaboo / TCC path identity. Clear it before scheduling the relaunch.
+        AppTranslocationSupport.clearQuarantineAttributes(at: destination)
         let helper = Process()
         helper.executableURL = URL(fileURLWithPath: "/bin/sh")
         let processInfo = ProcessInfo.processInfo
@@ -1340,9 +1363,12 @@ extension ApplicationRelocator {
         while waitpid(processIdentifier, &processStatus, 0) == -1, errno == EINTR {}
     }
 
-    private static func showFailure(_ message: String) {
+    private static func showFailure(
+        _ message: String,
+        title: String = "Move OpenClaw to Applications")
+    {
         let alert = NSAlert()
-        alert.messageText = "Move OpenClaw to Applications"
+        alert.messageText = title
         alert.informativeText = message
         alert.alertStyle = .warning
         alert.addButton(withTitle: "OK")
