@@ -45,7 +45,7 @@ function admitQuestionAnswerIntoScope(
 }
 
 /** Admit a persisted answer into the live question-custody scope, if one is active. */
-export function admitSessionTranscriptQuestionAnswer(
+function admitSessionTranscriptQuestionAnswer(
   source: UserTurnTranscriptRecorder | undefined,
 ): void {
   const scope = questionAnswerStorage.getStore();
