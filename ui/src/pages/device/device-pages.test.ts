@@ -641,7 +641,9 @@ describe("native device settings pages", () => {
     const warning = page.querySelector(".callout.warning");
     expect(warning?.textContent).toContain("Running under App Translocation");
     expect(warning?.textContent).toContain("com.apple.quarantine");
-    expect(warning?.querySelector("a")?.getAttribute("href")).toContain("/platforms/mac/permissions");
+    expect(warning?.querySelector("a")?.getAttribute("href")).toContain(
+      "/platforms/mac/permissions",
+    );
   });
 
   it.each([false, undefined])(
