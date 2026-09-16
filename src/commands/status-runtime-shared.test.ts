@@ -1,5 +1,6 @@
 // Status runtime shared tests cover gateway health, runtime details, and safe status probe fallbacks.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { OpenClawConfig } from "../config/types.js";
 import {
   resolveStatusGatewayDiagnosticsSafe,
   resolveStatusGatewayHealth,
@@ -128,20 +129,25 @@ describe("status-runtime-shared", () => {
       models: {
         providers: {
           openrouter: {
+            baseUrl: "https://openrouter.ai/api/v1",
+            api: "openai-completions",
             apiKey: { source: "exec", provider: "default", id: "openrouter-key" },
+            models: [],
           },
         },
       },
-    };
+    } as const satisfies OpenClawConfig;
     const preparedConfig = {
+      ...sourceConfig,
       models: {
         providers: {
           openrouter: {
+            ...sourceConfig.models.providers.openrouter,
             apiKey: "or-secretref-token",
           },
         },
       },
-    };
+    } satisfies OpenClawConfig;
     mocks.resolveCommandConfigWithSecrets.mockResolvedValueOnce({
       resolvedConfig: preparedConfig,
       effectiveConfig: preparedConfig,

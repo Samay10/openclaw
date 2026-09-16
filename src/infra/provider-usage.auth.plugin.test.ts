@@ -583,7 +583,10 @@ describe("resolveProviderAuths plugin boundary", () => {
             models: {
               providers: {
                 openrouter: {
+                  baseUrl: "https://openrouter.ai/api/v1",
+                  api: "openai-completions",
                   apiKey: "or-prepared-secretref-token",
+                  models: [],
                 },
               },
             },
