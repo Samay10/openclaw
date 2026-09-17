@@ -52,7 +52,6 @@ import { formatUiError } from "../../lib/format-error.ts";
 import { isMissingOperatorReadScopeError } from "../../lib/gateway-errors.ts";
 import { canCallGatewayMethod } from "../../lib/gateway-methods.ts";
 import { loadModelCatalog } from "../../lib/model-catalog-store.ts";
-import { resolveScrollBehavior } from "../../lib/scroll-behavior.ts";
 import {
   GatewayPageController,
   type GatewayPageChange,
@@ -71,6 +70,7 @@ import {
 import { switchActiveRealtimeTalkCameras } from "../chat/talk/session.ts";
 import { isUnknownSystemInfoMethodError, supportsSystemInfo } from "../connection/system-info.ts";
 import { renderBrowserLinkPreferencesRow } from "./browser-link-preferences.ts";
+import { ConfigRouteScrollController } from "./config-route-scroll-controller.ts";
 import {
   configSectionKeysForPage,
   SCOPED_CONFIG_SECTION_KEYS,
@@ -194,7 +194,7 @@ export function extractQuickSettingsSecurity(config: unknown): SecurityOverview 
       execPolicy: "unknown",
       browserEnabled: true,
       browserEnabledOverridden: false,
-      toolProfile: "full",
+      toolProfile: "",
       toolProfileOverridden: false,
     };
   }
@@ -223,7 +223,7 @@ export function extractQuickSettingsSecurity(config: unknown): SecurityOverview 
     execPolicy: typeof security === "string" && security.trim() ? security.trim() : "allowlist",
     browserEnabled: browser?.enabled !== false,
     browserEnabledOverridden: browser !== null && Object.hasOwn(browser, "enabled"),
-    toolProfile: typeof profile === "string" && profile.trim() ? profile.trim() : "full",
+    toolProfile: typeof profile === "string" ? profile.trim() : "",
     toolProfileOverridden: tools !== null && Object.hasOwn(tools, "profile"),
   };
 }
@@ -431,7 +431,7 @@ export class ConfigPage extends OpenClawLightDomElement {
       }
     },
   });
-  private pendingRouteTargetId: string | null = null;
+  private readonly routeTargetScroll = new ConfigRouteScrollController(this);
   private readonly gateway = new GatewayPageController(this, {
     getGateway: () => this.context?.gateway,
     invalidateRequests: () => this.invalidateSystemInfoRequest(),
@@ -545,7 +545,6 @@ export class ConfigPage extends OpenClawLightDomElement {
     this.syncSystemInfoPolling();
     this.syncUpdateStatusRefresh();
     this.syncUpdateCountdownPolling();
-    this.scrollToPendingRouteTarget();
     // Device labels stay hidden until the user grants media permission; each
     // picker requests its permission explicitly when opened.
     if (this.pageId === "appearance" && !this.microphoneLoaded) {
@@ -615,22 +614,7 @@ export class ConfigPage extends OpenClawLightDomElement {
     this.selections = { ...this.selections, [this.pageId]: selection };
     const targetBlockId =
       this.routeData?.targetBlockId ?? configTargetIdFromHash(globalThis.location?.hash ?? "");
-    this.pendingRouteTargetId = targetBlockId;
-  }
-
-  private scrollToPendingRouteTarget() {
-    const targetId = this.pendingRouteTargetId;
-    if (!targetId) {
-      return;
-    }
-    const target = [...this.renderRoot.querySelectorAll<HTMLElement>("[id]")].find(
-      (element) => element.id === targetId,
-    );
-    if (!target) {
-      return;
-    }
-    target.scrollIntoView?.({ behavior: resolveScrollBehavior(), block: "start" });
-    this.pendingRouteTargetId = null;
+    this.routeTargetScroll.setTarget(targetBlockId);
   }
 
   private isSystemInfoVisible(): boolean {
@@ -1393,10 +1377,6 @@ export class ConfigPage extends OpenClawLightDomElement {
           runtimeConfig.patchForm(["browser", "enabled"], false);
         },
         onToolProfileChange: (profile) => {
-          if (profile === "full") {
-            runtimeConfig.removeFormValue(["tools", "profile"]);
-            return;
-          }
           runtimeConfig.patchForm(["tools", "profile"], profile);
         },
         editor: renderConfig({ ...props, embeddedEditor: true }),
