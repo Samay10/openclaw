@@ -267,6 +267,9 @@ public struct DeviceSettingsSnapshot: Encodable, Sendable {
         public let notificationsEnabled: Bool?
         /// True when the running Mac app executable/bundle path is under App Translocation.
         public let runningUnderAppTranslocation: Bool?
+        /// True when the running bundle root still has com.apple.quarantine.
+        /// Nested resource quarantine is ignored; the top-level flag is enough to reset Accessibility.
+        public let bundleHasQuarantine: Bool?
 
         public init(
             showDockIcon: Bool? = nil,
@@ -282,7 +285,8 @@ public struct DeviceSettingsSnapshot: Encodable, Sendable {
             debugPaneEnabled: Bool? = nil,
             appearance: DeviceSettingsAppearance? = nil,
             notificationsEnabled: Bool? = nil,
-            runningUnderAppTranslocation: Bool? = nil)
+            runningUnderAppTranslocation: Bool? = nil,
+            bundleHasQuarantine: Bool? = nil)
         {
             self.showDockIcon = showDockIcon
             self.nativeExperienceEnabled = nativeExperienceEnabled
@@ -298,6 +302,7 @@ public struct DeviceSettingsSnapshot: Encodable, Sendable {
             self.appearance = appearance
             self.notificationsEnabled = notificationsEnabled
             self.runningUnderAppTranslocation = runningUnderAppTranslocation
+            self.bundleHasQuarantine = bundleHasQuarantine
         }
 
         public struct IconStyle: Encodable, Sendable {

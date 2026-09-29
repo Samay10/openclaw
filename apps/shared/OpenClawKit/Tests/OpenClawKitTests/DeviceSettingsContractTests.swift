@@ -106,6 +106,7 @@ struct DeviceSettingsContractTests {
         #expect(device["profileName"] as? String == "fixture-profile")
         #expect(app["quickChatShortcut"] as? String == "⌥Space")
         #expect(app["runningUnderAppTranslocation"] as? Bool == true)
+        #expect(app["bundleHasQuarantine"] as? Bool == true)
         #expect(cookieSync["detail"] as? String == "Sync 'fixture' \\\"quoted\\\"\nnext line")
         #expect(microphone["selectedId"] as? String == "fixture-mic")
         #expect(updates["unavailableReason"] as? String == "Updates are unavailable for this fixture.")
@@ -127,7 +128,8 @@ struct DeviceSettingsContractTests {
                 keepGatewayRunningAvailable: true,
                 quickChatEnabled: true, quickChatShortcut: .some(withNullableValues ? "⌥Space" : nil),
                 debugPaneEnabled: false,
-                runningUnderAppTranslocation: withNullableValues ? true : nil),
+                runningUnderAppTranslocation: withNullableValues ? true : nil,
+                bundleHasQuarantine: withNullableValues ? true : nil),
             capabilities: .init(
                 canvasEnabled: true, cameraEnabled: false, computerControlEnabled: true, computerControlProvider: "cua",
                 cuaDriverBundled: true, peekabooBridgeEnabled: false, activeComputerPresenceEnabled: true),

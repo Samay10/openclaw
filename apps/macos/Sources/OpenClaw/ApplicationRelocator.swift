@@ -252,13 +252,11 @@ enum ApplicationRelocator {
             recommendation: recommendation,
             arguments: processInfo.arguments)
         {
-            if AppTranslocationSupport.isRunningUnderAppTranslocation(
+            if let warning = AppTranslocationSupport.launchHealthWarning(
                 executablePath: processInfo.arguments.first,
                 bundlePath: environment.bundleURL.path)
             {
-                self.showFailure(
-                    AppTranslocationSupport.stuckRelocationMessage,
-                    title: AppTranslocationSupport.stuckRelocationTitle)
+                self.showFailure(warning.message, title: warning.title)
             } else {
                 self.showFailure(
                     "OpenClaw is installed in Applications, but couldn’t reopen automatically. Open it there manually.")
@@ -279,13 +277,11 @@ enum ApplicationRelocator {
             }
             if !processInfo.isRunningTests,
                !processInfo.isPreview,
-               AppTranslocationSupport.isRunningUnderAppTranslocation(
+               let warning = AppTranslocationSupport.launchHealthWarning(
                    executablePath: processInfo.arguments.first,
                    bundlePath: environment.bundleURL.path)
             {
-                self.showFailure(
-                    AppTranslocationSupport.stuckRelocationMessage,
-                    title: AppTranslocationSupport.stuckRelocationTitle)
+                self.showFailure(warning.message, title: warning.title)
             }
             return .continueLaunch(startUpdater: true)
         case let .handOff(destination):
