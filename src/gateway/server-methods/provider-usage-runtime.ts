@@ -94,9 +94,10 @@ function resolveDirectApiKeys(
       cfg: config,
       provider,
     });
+    const managedApiKey = managed?.apiKey;
     const resolved =
       resolveUsableCustomProviderApiKey({ cfg: config, provider, env: process.env }) ??
-      (managed ? { apiKey: managed.apiKey, source: managed.source } : undefined) ??
+      (managed && managedApiKey ? { apiKey: managedApiKey, source: managed.source } : undefined) ??
       resolveEnvApiKey(provider, process.env, { config });
     if (!resolved) {
       continue;

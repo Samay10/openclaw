@@ -9,7 +9,6 @@ import { resolveModelAuthLabel } from "../agents/model-auth-label.js";
 import { resolveDefaultModelForAgent } from "../agents/model-selection.js";
 import { listOpenAIAuthProfileProvidersForAgentRuntime } from "../agents/openai-routing.js";
 import { resolveCommandConfigWithSecrets } from "../cli/command-config-resolution.js";
-import { getModelsCommandSecretTargetIds } from "../cli/command-secret-targets.js";
 import type { OpenClawConfig } from "../config/types.js";
 import { normalizeAgentId } from "../routing/session-key.js";
 import { createLazyImportLoader } from "../shared/lazy-promise.js";
@@ -61,21 +60,24 @@ function shouldUseConfiguredCodexSyntheticUsage(params: {
   return resolveUsageCredentialType(authLabel) !== "api_key";
 }
 
-/** Materialize model-provider SecretRefs so usage auth matches runtime credentials. */
+/** Usage auth reads provider API keys. Headers and TLS material stay out of this pass. */
+const USAGE_PROVIDER_SECRET_TARGET_IDS = new Set(["models.providers.*.apiKey"]);
+
+/** Materialize provider API-key SecretRefs so usage auth matches runtime credentials. */
 async function resolveUsageConfigWithProviderSecrets(params: {
   config: OpenClawConfig;
   agentId?: string;
   timeoutMs?: number;
-}): Promise<OpenClawConfig> {
-  const { resolvedConfig } = await resolveCommandConfigWithSecrets({
+}): Promise<{ config: OpenClawConfig; diagnostics: string[] }> {
+  const { resolvedConfig, diagnostics } = await resolveCommandConfigWithSecrets({
     config: params.config,
     commandName: "status --usage",
-    targetIds: getModelsCommandSecretTargetIds(),
+    targetIds: USAGE_PROVIDER_SECRET_TARGET_IDS,
     mode: "read_only_status",
     ...(params.agentId ? { agentId: params.agentId } : {}),
     ...(params.timeoutMs !== undefined ? { gatewaySecretResolveTimeoutMs: params.timeoutMs } : {}),
   });
-  return resolvedConfig;
+  return { config: resolvedConfig, diagnostics };
 }
 
 export type StatusUsageSummaryOptions = {
@@ -84,6 +86,7 @@ export type StatusUsageSummaryOptions = {
   gatewayProbeDeadlineMs: number;
   agentId?: string;
   agentDir?: string;
+  onSecretDiagnostics?: (diagnostics: string[]) => void;
 };
 
 /** Loads provider usage for status output from an explicit or ambient system-agent scope. */
@@ -108,11 +111,13 @@ export async function resolveStatusUsageSummary(params: StatusUsageSummaryOption
   }
   // Status scans omit model-provider targets. Prepare them here so exec and
   // store SecretRefs reach usage auth as the same credentials inference uses.
-  const config = await resolveUsageConfigWithProviderSecrets({
+  const prepared = await resolveUsageConfigWithProviderSecrets({
     config: params.config,
     timeoutMs: resolveStatusGatewayProbeTimeoutMs(params),
     ...(resolvedAgentId ? { agentId: resolvedAgentId } : {}),
   });
+  params.onSecretDiagnostics?.(prepared.diagnostics);
+  const config = prepared.config;
   const usage = await loadProviderUsageSummary({
     timeoutMs: resolveStatusGatewayProbeTimeoutMs(params),
     config,
