@@ -8,6 +8,8 @@ import { resolveAgentHarnessPolicy } from "../agents/harness/policy.js";
 import { resolveModelAuthLabel } from "../agents/model-auth-label.js";
 import { resolveDefaultModelForAgent } from "../agents/model-selection.js";
 import { listOpenAIAuthProfileProvidersForAgentRuntime } from "../agents/openai-routing.js";
+import { resolveCommandConfigWithSecrets } from "../cli/command-config-resolution.js";
+import { getModelsCommandSecretTargetIds } from "../cli/command-secret-targets.js";
 import type { OpenClawConfig } from "../config/types.js";
 import { normalizeAgentId } from "../routing/session-key.js";
 import { createLazyImportLoader } from "../shared/lazy-promise.js";
@@ -59,6 +61,23 @@ function shouldUseConfiguredCodexSyntheticUsage(params: {
   return resolveUsageCredentialType(authLabel) !== "api_key";
 }
 
+/** Materialize model-provider SecretRefs so usage auth matches runtime credentials. */
+async function resolveUsageConfigWithProviderSecrets(params: {
+  config: OpenClawConfig;
+  agentId?: string;
+  timeoutMs?: number;
+}): Promise<OpenClawConfig> {
+  const { resolvedConfig } = await resolveCommandConfigWithSecrets({
+    config: params.config,
+    commandName: "status --usage",
+    targetIds: getModelsCommandSecretTargetIds(),
+    mode: "read_only_status",
+    ...(params.agentId ? { agentId: params.agentId } : {}),
+    ...(params.timeoutMs !== undefined ? { gatewaySecretResolveTimeoutMs: params.timeoutMs } : {}),
+  });
+  return resolvedConfig;
+}
+
 export type StatusUsageSummaryOptions = {
   config: OpenClawConfig;
   timeoutMs?: number;
@@ -87,14 +106,21 @@ export async function resolveStatusUsageSummary(params: StatusUsageSummaryOption
     });
     agentDir = resolveAgentDir(params.config, resolvedAgentId);
   }
+  // Status scans omit model-provider targets. Prepare them here so exec and
+  // store SecretRefs reach usage auth as the same credentials inference uses.
+  const config = await resolveUsageConfigWithProviderSecrets({
+    config: params.config,
+    timeoutMs: resolveStatusGatewayProbeTimeoutMs(params),
+    ...(resolvedAgentId ? { agentId: resolvedAgentId } : {}),
+  });
   const usage = await loadProviderUsageSummary({
     timeoutMs: resolveStatusGatewayProbeTimeoutMs(params),
-    config: params.config,
+    config,
     agentDir,
   });
   if (
     !shouldUseConfiguredCodexSyntheticUsage({
-      config: params.config,
+      config,
       agentDir,
       agentId: resolvedAgentId,
     })
@@ -105,7 +131,7 @@ export async function resolveStatusUsageSummary(params: StatusUsageSummaryOption
     timeoutMs: resolveStatusGatewayProbeTimeoutMs(params),
     providers: ["openai"],
     auth: [buildCodexSyntheticUsageAuth()],
-    config: params.config,
+    config,
     agentDir,
   });
   return mergeUsageSummaries(usage, codexUsage);
